@@ -12,6 +12,7 @@ import {
   formatTime,
 } from '../utils/constants';
 import { getStationTaktProfile } from '../utils/knoten';
+import { computeAllStationsOptimizationPotential, type StationOptimizationPotential } from '../utils/optimizationPotential';
 
 const VALID_CATEGORIES = new Set<string>(CATEGORY_PRIORITY);
 
@@ -40,12 +41,25 @@ const NetworkMap: React.FC = () => {
   const setSelectedStation = useFahrplanStore((s) => s.setSelectedStation);
   const setSelectedLine = useFahrplanStore((s) => s.setSelectedLine);
   const setHoveredEdge = useFahrplanStore((s) => s.setHoveredEdge);
+  const setViewMode = useFahrplanStore((s) => s.setViewMode);
+  const getModifiedLine = useFahrplanStore((s) => s.getModifiedLine);
 
   const [dimUnmodified, setDimUnmodified] = useState(false);
+  const [colorMode, setColorMode] = useState<'potential' | 'standard'>('potential');
   const [isOverlayExpanded, setIsOverlayExpanded] = useState(true);
   const [mapInstance, setMapInstance] = useState<LeafletMap | null>(null);
 
   const { lines, stations, network } = data;
+
+  // Modified lines reflect live user edits!
+  const modifiedLines = useMemo(() => {
+    return lines.map((l) => getModifiedLine(l));
+  }, [lines, getModifiedLine]);
+
+  // Precompute optimization potential for all stations
+  const potentialMap = useMemo(() => {
+    return computeAllStationsOptimizationPotential(stations, modifiedLines);
+  }, [stations, modifiedLines]);
 
   // Build high-resolution lookup map for modified segments (by station names & IDs)
   const modifiedSegmentsMap = useMemo(() => {
@@ -253,6 +267,77 @@ const NetworkMap: React.FC = () => {
 
   return (
     <div className="h-full w-full relative" style={{ height: '100%', width: '100%' }}>
+      {/* View Mode Bar on Map (Top-Left) */}
+      <div className="absolute top-3 left-14 z-[1000] pointer-events-auto flex items-center gap-1.5 bg-white/95 backdrop-blur-md px-2.5 py-1.5 rounded-xl shadow-md border border-gray-200 text-xs">
+        <span className="font-bold text-gray-700 mr-1 hidden sm:inline">Farbcodierung:</span>
+        <button
+          type="button"
+          onClick={() => setColorMode('potential')}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+            colorMode === 'potential'
+              ? 'bg-gradient-to-r from-red-600 via-amber-500 to-emerald-600 text-white shadow-xs'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+          title="Bahnhöfe nach Optimierungspotenzial (gebrochene & knappe Anschlüsse) farbcodieren"
+        >
+          <span>🎯</span>
+          <span>Optimierungspotenzial</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setColorMode('standard')}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+            colorMode === 'standard'
+              ? 'bg-gray-900 text-white shadow-xs'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+          title="Klassische Darstellung der Bahnhöfe"
+        >
+          <span>🚉</span>
+          <span>Standard</span>
+        </button>
+      </div>
+
+      {/* Floating Legend for Optimization Potential */}
+      {colorMode === 'potential' && (
+        <div className="absolute bottom-6 left-3 z-[1000] pointer-events-auto bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-gray-200 p-3 text-xs max-w-xs">
+          <div className="font-bold text-gray-900 mb-2 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <span>🎯</span>
+              <span>Optimierungspotenzial</span>
+            </span>
+            <button
+              onClick={() => setViewMode('anschlüsse')}
+              className="text-[10px] text-blue-600 hover:text-blue-800 hover:underline font-semibold cursor-pointer"
+            >
+              Matrix ➔
+            </button>
+          </div>
+          <div className="space-y-1.5 text-[11px]">
+            <div className="flex items-center gap-2">
+              <span className="w-3.5 h-3.5 rounded-full bg-red-500 ring-2 ring-red-200 shrink-0" />
+              <span className="font-bold text-red-900">Hohes Potenzial</span>
+              <span className="text-gray-500 text-[10px] ml-auto">≥3 gebrochen / &lt;70%</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3.5 h-3.5 rounded-full bg-amber-500 ring-2 ring-amber-200 shrink-0" />
+              <span className="font-bold text-amber-900">Mittleres Potenzial</span>
+              <span className="text-gray-500 text-[10px] ml-auto">70–85% gesichert</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200 shrink-0" />
+              <span className="font-bold text-emerald-900">Optimaler Knoten</span>
+              <span className="text-gray-500 text-[10px] ml-auto">≥85% gesichert</span>
+            </div>
+            <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
+              <span className="w-3.5 h-3.5 rounded-full bg-slate-400 shrink-0" />
+              <span className="text-gray-600">Keine Umstiege</span>
+              <span className="text-gray-400 text-[10px] ml-auto">Kleinbahnhof</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Floating Map Legend & Changes Overlay */}
       <div className="absolute top-3 right-3 z-[1000] max-w-sm pointer-events-auto">
         <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-gray-200 overflow-hidden text-xs">
@@ -505,19 +590,47 @@ const NetworkMap: React.FC = () => {
           const isSelected = selectedStation?.id === station.id;
           const isStationModified = modifiedStationsMap.has(station.name.toLowerCase());
           const modStationInfo = modifiedStationsMap.get(station.name.toLowerCase());
+          const potInfo = potentialMap.get(station.id);
 
-          const radius = isSelected ? 8 : station.isHub ? 6 : 3;
-          const fillColor = isSelected
+          let radius = isSelected ? 8 : station.isHub ? 6 : 3;
+          let fillColor = isSelected
             ? '#f59e0b'
             : isStationModified
             ? '#10b981'
             : station.isHub
             ? '#1e293b'
             : '#64748b';
-          const fillOpacity = station.isHub || isStationModified ? 0.95 : 0.6;
+          let fillOpacity = station.isHub || isStationModified ? 0.95 : 0.6;
+
+          if (colorMode === 'potential' && potInfo && potInfo.potentialLevel !== 'none') {
+            fillColor = isSelected ? '#f59e0b' : potInfo.color;
+            fillOpacity = 0.95;
+            if (potInfo.potentialLevel === 'high') {
+              radius = isSelected ? 10 : 7.5;
+            } else if (potInfo.potentialLevel === 'medium') {
+              radius = isSelected ? 8.5 : 6;
+            } else {
+              radius = isSelected ? 8 : 5.5;
+            }
+          }
 
           return (
             <React.Fragment key={station.id}>
+              {/* Pulsing ring around high potential stations */}
+              {colorMode === 'potential' && potInfo?.potentialLevel === 'high' && (
+                <CircleMarker
+                  center={[station.lat, station.lon]}
+                  radius={14}
+                  pathOptions={{
+                    color: '#ef4444',
+                    weight: 2,
+                    dashArray: '3 3',
+                    fillColor: '#fca5a5',
+                    fillOpacity: 0.25,
+                  }}
+                />
+              )}
+
               {/* Pulsing ring around modified stations */}
               {isStationModified && (
                 <CircleMarker
@@ -537,8 +650,14 @@ const NetworkMap: React.FC = () => {
                 center={[station.lat, station.lon]}
                 radius={radius}
                 pathOptions={{
-                  color: isSelected ? '#f59e0b' : isStationModified ? '#059669' : '#fff',
-                  weight: isSelected ? 3 : isStationModified ? 2.5 : 1,
+                  color: isSelected
+                    ? '#f59e0b'
+                    : colorMode === 'potential' && potInfo && potInfo.potentialLevel !== 'none'
+                    ? '#fff'
+                    : isStationModified
+                    ? '#059669'
+                    : '#fff',
+                  weight: isSelected ? 3 : isStationModified ? 2.5 : 1.5,
                   fillColor,
                   fillOpacity,
                 }}
@@ -546,13 +665,66 @@ const NetworkMap: React.FC = () => {
                   click: () => handleStationClick(station),
                 }}
               >
-                {(station.isHub || isStationModified) && (
-                  <Tooltip direction="top" offset={[0, -8]} opacity={0.95}>
-                    <div className="text-xs p-1 min-w-[130px]">
-                      <div className="font-bold text-gray-900">{station.name}</div>
-                      <div className="text-[10px] text-gray-500 font-medium">
-                        {hubTaktMap.get(station.id)?.classification || (isStationModified ? 'Angepasste Station' : 'Knotenbahnhof')}
+                {(station.isHub || isStationModified || (colorMode === 'potential' && potInfo && potInfo.totalConnections > 0)) && (
+                  <Tooltip direction="top" offset={[0, -8]} opacity={0.98}>
+                    <div className="text-xs p-1.5 min-w-[160px] max-w-[220px]">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-bold text-gray-900 text-sm truncate">{station.name}</div>
+                        {colorMode === 'potential' && potInfo && potInfo.potentialLevel !== 'none' && (
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
+                            style={{ backgroundColor: potInfo.color }}
+                          />
+                        )}
                       </div>
+
+                      <div className="text-[10px] text-gray-500 font-medium">
+                        {hubTaktMap.get(station.id)?.classification || (isStationModified ? 'Angepasste Station' : 'Bahnhof')}
+                      </div>
+
+                      {/* Optimization Potential Info */}
+                      {colorMode === 'potential' && potInfo && potInfo.totalConnections > 0 && (
+                        <div className="mt-1.5 pt-1.5 border-t border-gray-100 space-y-1">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-gray-600 font-medium">Potenzial:</span>
+                            <span
+                              className={`font-black text-[10px] px-1.5 py-0.2 rounded ${
+                                potInfo.potentialLevel === 'high'
+                                  ? 'bg-red-100 text-red-800 border border-red-300'
+                                  : potInfo.potentialLevel === 'medium'
+                                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                  : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                              }`}
+                            >
+                              {potInfo.badgeLabel}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-gray-600">Qualität:</span>
+                            <span className="font-mono font-bold text-gray-900">{potInfo.qualityPercent}%</span>
+                          </div>
+
+                          <div className="text-[10px] flex items-center justify-between pt-0.5 text-gray-500">
+                            <span className="text-red-600 font-bold">❌ {potInfo.brokenCount}</span>
+                            <span className="text-amber-600 font-bold">⚠️ {potInfo.knappCount}</span>
+                            <span className="text-emerald-600 font-bold">✅ {potInfo.optimalCount}</span>
+                            <span className="text-gray-400">({potInfo.totalConnections} tot.)</span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedStation(station);
+                              setViewMode('anschlüsse');
+                            }}
+                            className="mt-1.5 w-full text-center py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10px] font-bold shadow-xs cursor-pointer transition-colors"
+                          >
+                            🔄 Anschlüsse prüfen & optimieren
+                          </button>
+                        </div>
+                      )}
 
                       {/* Station modification note */}
                       {isStationModified && modStationInfo && (
@@ -562,7 +734,7 @@ const NetworkMap: React.FC = () => {
                       )}
 
                       {/* Taktknoten badges */}
-                      <div className="mt-1 flex flex-wrap gap-1">
+                      <div className="mt-1.5 flex flex-wrap gap-1">
                         {hubTaktMap.get(station.id)?.dominant.map((node) => {
                           const badge =
                             node === 'um'
