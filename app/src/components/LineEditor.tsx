@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { Segment } from '../types';
 import { useFahrplanStore } from '../stores/fahrplanStore';
 import {
@@ -7,6 +7,7 @@ import {
   formatTime,
   formatDuration,
 } from '../utils/constants';
+import { getTaktNode } from '../utils/knoten';
 
 function segmentKey(seg: Segment): string {
   return `${seg.fromStop}_${seg.toStop}`;
@@ -30,6 +31,9 @@ const LineEditor: React.FC = () => {
 
   const [taktInput, setTaktInput] = useState('');
   const [selectedSegmentKey, setSelectedSegmentKey] = useState<string | null>(null);
+
+  const stations = useFahrplanStore((s) => s.data[s.activeYear].stations);
+  const hubMap = useMemo(() => new Set(stations.filter(s => s.isHub).map(s => s.name.toLowerCase())), [stations]);
 
   if (viewMode !== 'editor' || !selectedLine) return null;
 
@@ -206,6 +210,9 @@ const LineEditor: React.FC = () => {
                   const isModifiedSegment = segment && modSeg && modSeg.travelTime !== segment.travelTime;
                   const segDiff = segment && modSeg ? modSeg.travelTime - segment.travelTime : 0;
                   const isLastStop = idx === calculatedStops.length - 1;
+                  const isHub = hubMap.has(stop.name.toLowerCase());
+                  const depNode = getTaktNode(stop.departure);
+                  const arrNode = getTaktNode(stop.arrival);
 
                   const arrDiffMinutes = Math.round(stop.arrivalDeltaSeconds / 60);
                   const depDiffMinutes = Math.round(stop.departureDeltaSeconds / 60);
@@ -215,9 +222,14 @@ const LineEditor: React.FC = () => {
                       {/* Stop row */}
                       <tr className={`border-t border-gray-100 ${stop.isModified ? 'bg-amber-50/40' : 'hover:bg-gray-50'}`}>
                         <td className="px-3 py-2.5 font-medium text-gray-900">
-                          <div className="flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-gray-400 shrink-0" />
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${isHub ? 'bg-amber-500 ring-2 ring-amber-200' : 'bg-gray-400'}`} />
                             <span>{stop.name}</span>
+                            {isHub && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                Knoten
+                              </span>
+                            )}
                           </div>
                         </td>
 
@@ -245,6 +257,16 @@ const LineEditor: React.FC = () => {
                                   }`}
                                 >
                                   {arrDiffMinutes > 0 ? '+' : ''}{arrDiffMinutes} min
+                                </span>
+                              )}
+                              {isLastStop && (
+                                <span className={`mt-0.5 text-[10px] font-bold px-1.5 py-0.2 rounded border ${arrNode.bgColor} ${arrNode.textColor} ${arrNode.borderColor}`} title={arrNode.label}>
+                                  {arrNode.shortLabel}
+                                  {arrNode.deltaMinutes !== 0 && (
+                                    <span className="ml-0.5 opacity-80 font-normal">
+                                      {arrNode.deltaMinutes > 0 ? `+${arrNode.deltaMinutes}'` : `${arrNode.deltaMinutes}'`}
+                                    </span>
+                                  )}
                                 </span>
                               )}
                             </div>
@@ -277,6 +299,14 @@ const LineEditor: React.FC = () => {
                                   {depDiffMinutes > 0 ? '+' : ''}{depDiffMinutes} min
                                 </span>
                               )}
+                              <span className={`mt-0.5 text-[10px] font-bold px-1.5 py-0.2 rounded border ${depNode.bgColor} ${depNode.textColor} ${depNode.borderColor}`} title={depNode.label}>
+                                {depNode.shortLabel}
+                                {depNode.deltaMinutes !== 0 && (
+                                  <span className="ml-0.5 opacity-80 font-normal">
+                                    {depNode.deltaMinutes > 0 ? `+${depNode.deltaMinutes}'` : `${depNode.deltaMinutes}'`}
+                                  </span>
+                                )}
+                              </span>
                             </div>
                           )}
                         </td>

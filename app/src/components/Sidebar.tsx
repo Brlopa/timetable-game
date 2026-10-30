@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { LineCategory, ViewMode } from '../types';
 import { useFahrplanStore } from '../stores/fahrplanStore';
-import { CATEGORY_COLORS, CATEGORY_NAMES, CATEGORY_PRIORITY, formatDuration } from '../utils/constants';
+import { CATEGORY_COLORS, CATEGORY_NAMES, CATEGORY_PRIORITY, formatDuration, formatTime } from '../utils/constants';
+import { getTaktNode, getStationTaktProfile, type TaktNodeType } from '../utils/knoten';
 
 const VIEW_MODES: { key: ViewMode; label: string }[] = [
   { key: 'map', label: 'Karte' },
@@ -40,6 +41,18 @@ const Sidebar: React.FC = () => {
     taktModifications.length;
 
   const stationLines = selectedStation ? getStationLines(selectedStation.id) : [];
+  const [stationNodeFilter, setStationNodeFilter] = useState<TaktNodeType | null>(null);
+
+  const stationProfile = useMemo(() => {
+    if (!selectedStation) return null;
+    return getStationTaktProfile(selectedStation.name, stationLines);
+  }, [selectedStation, stationLines]);
+
+  const filteredStationLines = useMemo(() => {
+    if (!stationNodeFilter || !stationProfile) return stationLines;
+    const allowedLineIds = new Set(stationProfile.nodeLines[stationNodeFilter].map((item) => item.line.id));
+    return stationLines.filter((l) => allowedLineIds.has(l.id));
+  }, [stationLines, stationNodeFilter, stationProfile]);
 
   return (
     <aside className="w-80 h-full flex flex-col bg-white shadow-lg border-r border-gray-200 overflow-y-auto">
@@ -191,39 +204,152 @@ const Sidebar: React.FC = () => {
               Bahnhof
             </label>
             <button
-              onClick={() => setSelectedStation(null)}
+              onClick={() => {
+                setSelectedStation(null);
+                setStationNodeFilter(null);
+              }}
               className="text-gray-400 hover:text-gray-600 text-lg leading-none"
               title="Auswahl aufheben"
             >
               ×
             </button>
           </div>
-          <p className="mt-1 font-semibold text-gray-900">{selectedStation.name}</p>
-          {selectedStation.isHub && (
-            <span className="inline-block mt-0.5 text-xs bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded-full">
-              Knotenbahnhof
-            </span>
-          )}
-          {stationLines.length > 0 && (
-            <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
-              {stationLines.map((line) => (
+          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+            <p className="font-bold text-gray-900 text-base">{selectedStation.name}</p>
+            {selectedStation.isHub && (
+              <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-full border border-amber-200">
+                Knotenbahnhof
+              </span>
+            )}
+          </div>
+
+          {/* Taktknoten Profile & Quadranten */}
+          {stationProfile && (
+            <div className="mt-2.5">
+              <div className="text-[11px] font-semibold text-gray-600 mb-1.5">
+                {stationProfile.classification}
+              </div>
+
+              {/* 4 Taktknoten Buttons (Filter) */}
+              <div className="grid grid-cols-2 gap-1.5">
                 <button
-                  key={line.id}
-                  onClick={() => {
-                    setSelectedLine(line);
-                    setSelectedStation(null);
-                  }}
-                  className="w-full text-left flex items-center gap-2 px-2 py-1 rounded text-sm hover:bg-gray-50"
+                  onClick={() => setStationNodeFilter(stationNodeFilter === 'um' ? null : 'um')}
+                  className={`flex items-center justify-between px-2 py-1.5 rounded text-xs font-medium border transition-all ${
+                    stationNodeFilter === 'um'
+                      ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
+                      : 'bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100'
+                  }`}
+                  title="Linien zur vollen Stunde (.00 Um)"
                 >
-                  <span
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: CATEGORY_COLORS[line.category] }}
-                  />
-                  <span className="font-medium">{line.name}</span>
-                  <span className="text-xs text-gray-400 ml-auto">{line.category}</span>
+                  <span className="font-bold">.00 (Um)</span>
+                  <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${stationNodeFilter === 'um' ? 'bg-white/20' : 'bg-emerald-200/60'}`}>
+                    {stationProfile.nodeCounts.um}
+                  </span>
                 </button>
-              ))}
+
+                <button
+                  onClick={() => setStationNodeFilter(stationNodeFilter === 'halb' ? null : 'halb')}
+                  className={`flex items-center justify-between px-2 py-1.5 rounded text-xs font-medium border transition-all ${
+                    stationNodeFilter === 'halb'
+                      ? 'bg-blue-600 text-white border-blue-700 shadow-xs'
+                      : 'bg-blue-50 text-blue-900 border-blue-200 hover:bg-blue-100'
+                  }`}
+                  title="Linien zur halben Stunde (.30 Halb)"
+                >
+                  <span className="font-bold">.30 (Halb)</span>
+                  <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${stationNodeFilter === 'halb' ? 'bg-white/20' : 'bg-blue-200/60'}`}>
+                    {stationProfile.nodeCounts.halb}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setStationNodeFilter(stationNodeFilter === 'viertel_ab' ? null : 'viertel_ab')}
+                  className={`flex items-center justify-between px-2 py-1.5 rounded text-xs font-medium border transition-all ${
+                    stationNodeFilter === 'viertel_ab'
+                      ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
+                      : 'bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100'
+                  }`}
+                  title="Linien um Viertel nach (.15 Viertel ab)"
+                >
+                  <span className="font-bold">.15 (Viertel ab)</span>
+                  <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${stationNodeFilter === 'viertel_ab' ? 'bg-white/20' : 'bg-amber-200/60'}`}>
+                    {stationProfile.nodeCounts.viertel_ab}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setStationNodeFilter(stationNodeFilter === 'viertel_vor' ? null : 'viertel_vor')}
+                  className={`flex items-center justify-between px-2 py-1.5 rounded text-xs font-medium border transition-all ${
+                    stationNodeFilter === 'viertel_vor'
+                      ? 'bg-purple-600 text-white border-purple-700 shadow-xs'
+                      : 'bg-purple-50 text-purple-900 border-purple-200 hover:bg-purple-100'
+                  }`}
+                  title="Linien um Dreiviertel (.45 Viertel vor)"
+                >
+                  <span className="font-bold">.45 (Viertel vor)</span>
+                  <span className={`text-[11px] px-1.5 py-0.2 rounded-full ${stationNodeFilter === 'viertel_vor' ? 'bg-white/20' : 'bg-purple-200/60'}`}>
+                    {stationProfile.nodeCounts.viertel_vor}
+                  </span>
+                </button>
+              </div>
+
+              {stationNodeFilter && (
+                <div className="flex items-center justify-between mt-1 text-[11px] text-gray-500">
+                  <span>Filter aktiv: <b>{stationNodeFilter === 'um' ? 'Um (.00)' : stationNodeFilter === 'halb' ? 'Halb (.30)' : stationNodeFilter === 'viertel_ab' ? 'Viertel ab (.15)' : 'Viertel vor (.45)'}</b></span>
+                  <button onClick={() => setStationNodeFilter(null)} className="text-blue-600 hover:underline">
+                    Alle anzeigen
+                  </button>
+                </div>
+              )}
             </div>
+          )}
+
+          {/* Lines list with Takt badge */}
+          {filteredStationLines.length > 0 ? (
+            <div className="mt-3 space-y-1.5 max-h-48 overflow-y-auto pr-1">
+              {filteredStationLines.map((line) => {
+                const stop = line.stops.find((s) =>
+                  s.name.toLowerCase() === selectedStation.name.toLowerCase() ||
+                  s.name.toLowerCase().includes(selectedStation.name.toLowerCase()) ||
+                  selectedStation.name.toLowerCase().includes(s.name.toLowerCase())
+                );
+                const timeStr = stop?.departure || stop?.arrival || '';
+                const nodeInfo = getTaktNode(timeStr);
+
+                return (
+                  <button
+                    key={line.id}
+                    onClick={() => {
+                      setSelectedLine(line);
+                      setSelectedStation(null);
+                    }}
+                    className="w-full text-left flex items-center justify-between p-1.5 rounded-md text-xs hover:bg-gray-100 border border-transparent hover:border-gray-200 transition-colors"
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ backgroundColor: CATEGORY_COLORS[line.category] }}
+                      />
+                      <span className="font-semibold text-gray-900">{line.name}</span>
+                      <span className="text-gray-400 truncate max-w-[100px]">{line.headsign}</span>
+                    </div>
+
+                    {timeStr ? (
+                      <span
+                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${nodeInfo.bgColor} ${nodeInfo.textColor} ${nodeInfo.borderColor}`}
+                        title={`${formatTime(timeStr)} - ${nodeInfo.label}`}
+                      >
+                        {formatTime(timeStr)} ({nodeInfo.shortLabel})
+                      </span>
+                    ) : (
+                      <span className="text-gray-300 text-[10px]">—</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-gray-400">Keine Linien für diesen Knoten.</p>
           )}
         </div>
       )}

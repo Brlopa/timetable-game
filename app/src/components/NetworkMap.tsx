@@ -4,6 +4,7 @@ import type { LatLngExpression, PathOptions } from 'leaflet';
 import type { NetworkEdge, Station, LineCategory } from '../types';
 import { useFahrplanStore } from '../stores/fahrplanStore';
 import { CATEGORY_COLORS, CATEGORY_PRIORITY, SWISS_CENTER, SWISS_ZOOM } from '../utils/constants';
+import { getStationTaktProfile } from '../utils/knoten';
 
 const VALID_CATEGORIES = new Set<string>(CATEGORY_PRIORITY);
 
@@ -74,6 +75,28 @@ const NetworkMap: React.FC = () => {
   const filteredStations = useMemo(() => {
     return showHubsOnly ? stations.filter((s) => s.isHub) : stations;
   }, [stations, showHubsOnly]);
+
+  // Precompute Taktknoten profiles for hub stations
+  const hubTaktMap = useMemo(() => {
+    const map = new Map<string, { label: string; dominant: string[]; classification: string }>();
+    for (const s of stations) {
+      if (s.isHub) {
+        const profile = getStationTaktProfile(s.name, lines);
+        const tags: string[] = [];
+        if (profile.dominantNodes.includes('um')) tags.push('.00 (Um)');
+        if (profile.dominantNodes.includes('halb')) tags.push('.30 (Halb)');
+        if (profile.dominantNodes.includes('viertel_ab')) tags.push('.15 (Viertel ab)');
+        if (profile.dominantNodes.includes('viertel_vor')) tags.push('.45 (Viertel vor)');
+
+        map.set(s.id, {
+          label: tags.length > 0 ? tags.join(' • ') : 'Taktknoten',
+          dominant: profile.dominantNodes,
+          classification: profile.classification,
+        });
+      }
+    }
+    return map;
+  }, [stations, lines]);
 
   const handleStationClick = useCallback(
     (station: Station) => {
@@ -189,8 +212,33 @@ const NetworkMap: React.FC = () => {
               }}
             >
               {station.isHub && (
-                <Tooltip direction="top" offset={[0, -8]} opacity={0.9}>
-                  <span className="text-xs font-semibold">{station.name}</span>
+                <Tooltip direction="top" offset={[0, -8]} opacity={0.95}>
+                  <div className="text-xs p-1 min-w-[130px]">
+                    <div className="font-bold text-gray-900">{station.name}</div>
+                    <div className="text-[10px] text-gray-500 font-medium">
+                      {hubTaktMap.get(station.id)?.classification || 'Knotenbahnhof'}
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {hubTaktMap.get(station.id)?.dominant.map((node) => {
+                        const badge =
+                          node === 'um'
+                            ? { text: '.00 (Um)', cls: 'bg-emerald-100 text-emerald-800 border-emerald-300' }
+                            : node === 'halb'
+                            ? { text: '.30 (Halb)', cls: 'bg-blue-100 text-blue-800 border-blue-300' }
+                            : node === 'viertel_ab'
+                            ? { text: '.15 (Viertel ab)', cls: 'bg-amber-100 text-amber-800 border-amber-300' }
+                            : { text: '.45 (Viertel vor)', cls: 'bg-purple-100 text-purple-800 border-purple-300' };
+                        return (
+                          <span
+                            key={node}
+                            className={`px-1.5 py-0.2 rounded text-[10px] font-bold border ${badge.cls}`}
+                          >
+                            {badge.text}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </Tooltip>
               )}
             </CircleMarker>
