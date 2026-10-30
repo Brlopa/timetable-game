@@ -4,6 +4,7 @@ import { useFahrplanStore } from '../stores/fahrplanStore';
 const VIEW_LABELS: Record<string, string> = {
   map: 'Karte',
   editor: 'Editor',
+  anschlüsse: 'Anschlüsse',
   compare: 'Vergleich',
 };
 

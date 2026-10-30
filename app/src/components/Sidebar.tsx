@@ -7,6 +7,7 @@ import { getTaktNode, getStationTaktProfile, type TaktNodeType } from '../utils/
 const VIEW_MODES: { key: ViewMode; label: string }[] = [
   { key: 'map', label: 'Karte' },
   { key: 'editor', label: 'Editor' },
+  { key: 'anschlüsse', label: 'Anschlüsse' },
   { key: 'compare', label: 'Vergleich' },
 ];
 
@@ -222,6 +223,15 @@ const Sidebar: React.FC = () => {
               </span>
             )}
           </div>
+
+          <button
+            onClick={() => setViewMode('anschlüsse')}
+            className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-blue-50 text-blue-800 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-bold transition-colors shadow-xs"
+            title="Detaillierte Umsteigeverbindungen und Anschlussmatrix für diese Station prüfen"
+          >
+            <span>🔄</span>
+            <span>Anschlüsse an diesem Knoten prüfen</span>
+          </button>
 
           {/* Taktknoten Profile & Quadranten */}
           {stationProfile && (

@@ -6,6 +6,7 @@ import NetworkMap from './components/NetworkMap';
 import LineEditor from './components/LineEditor';
 import CompareView from './components/CompareView';
 import InfrastructurePanel from './components/InfrastructurePanel';
+import ConnectionChecker from './components/ConnectionChecker';
 
 function App() {
   const {
@@ -59,6 +60,8 @@ function App() {
             <>
               {viewMode === 'compare' ? (
                 <CompareView />
+              ) : viewMode === 'anschlüsse' ? (
+                <ConnectionChecker />
               ) : (
                 <>
                   <div className="flex-1 relative h-full w-full">

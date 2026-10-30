@@ -27,6 +27,8 @@ const LineEditor: React.FC = () => {
     removeDepartureMod,
     getModifiedLine,
     setSelectedLine,
+    setSelectedStation,
+    setViewMode,
   } = useFahrplanStore();
 
   const [taktInput, setTaktInput] = useState('');
@@ -226,9 +228,23 @@ const LineEditor: React.FC = () => {
                             <span className={`w-2 h-2 rounded-full shrink-0 ${isHub ? 'bg-amber-500 ring-2 ring-amber-200' : 'bg-gray-400'}`} />
                             <span>{stop.name}</span>
                             {isHub && (
-                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200">
-                                Knoten
-                              </span>
+                              <>
+                                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                  Knoten
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const st = stations.find((s) => s.name.toLowerCase() === stop.name.toLowerCase());
+                                    if (st) setSelectedStation(st);
+                                    setViewMode('anschlüsse');
+                                  }}
+                                  className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 cursor-pointer transition-colors"
+                                  title={`Anschluss-Prüfung an ${stop.name} öffnen`}
+                                >
+                                  🔄 Anschlüsse
+                                </button>
+                              </>
                             )}
                           </div>
                         </td>
