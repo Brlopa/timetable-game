@@ -5,7 +5,8 @@ import type {
   TravelTimeModification, DepartureModification,
   TaktModification, InfrastructureProject,
 } from '../types';
-import { generateId } from '../utils/constants';
+import { generateId, timeToSeconds } from '../utils/constants';
+import { calculateSynchronizedLine, calculateSegmentTimeFromTimes, type CalculatedLine } from '../utils/timetable';
 
 interface FahrplanState {
   // Data loading
@@ -65,8 +66,13 @@ interface FahrplanState {
   removeInfraProject: (id: string) => void;
   resetModifications: () => void;
 
+  // Synchronized modification actions
+  setStopDeparture: (line: Line, stopIndex: number, newDepartureTime: string) => void;
+  setStopArrival: (line: Line, stopIndex: number, newArrivalTime: string) => void;
+  setSegmentTravelTime: (segmentKey: string, newTime: number, originalTime?: number) => void;
+
   // Computed helpers
-  getModifiedLine: (line: Line) => Line;
+  getModifiedLine: (line: Line) => CalculatedLine;
   getStationLines: (stationId: string) => Line[];
 }
 
@@ -198,20 +204,129 @@ export const useFahrplanStore = create<FahrplanState>((set, get) => ({
 
   getModifiedLine: (line) => {
     const state = get();
-    const mods = state.travelTimeModifications;
-    const taktMod = state.taktModifications.find((m) => m.lineId === line.id);
+    return calculateSynchronizedLine(
+      line,
+      state.travelTimeModifications,
+      state.departureModifications,
+      state.taktModifications
+    );
+  },
 
-    const modifiedSegments = line.segments.map((seg) => {
-      const segKey = `${seg.fromStop}_${seg.toStop}`;
-      const mod = mods.find((m) => m.segmentKey === segKey);
-      return mod ? { ...seg, travelTime: mod.newTime } : seg;
+  setStopDeparture: (line, stopIndex, newDepartureTime) => {
+    const state = get();
+    const calculated = calculateSynchronizedLine(
+      line,
+      state.travelTimeModifications,
+      state.departureModifications,
+      state.taktModifications
+    );
+
+    const stop = calculated.calculatedStops[stopIndex];
+    if (!stop) return;
+
+    const targetDeparture = newDepartureTime.length === 5 ? newDepartureTime + ':00' : newDepartureTime;
+    const targetDepSecs = timeToSeconds(targetDeparture);
+
+    if (stopIndex === 0) {
+      set((s) => ({
+        departureModifications: [
+          ...s.departureModifications.filter((m) => !(m.lineId === line.id && m.stopId === stop.id)),
+          {
+            lineId: line.id,
+            stopId: stop.id,
+            originalDeparture: stop.originalDeparture || stop.departure,
+            newDeparture: targetDeparture,
+          },
+        ],
+      }));
+    } else {
+      const prevStop = calculated.calculatedStops[stopIndex - 1];
+      const prevDepSecs = prevStop.departureSeconds;
+      const dwellSecs = stop.dwellSeconds;
+      const prevSeg = line.segments[stopIndex - 1];
+      const segKey = `${prevSeg.fromStop}_${prevSeg.toStop}`;
+
+      const newTravelTime = calculateSegmentTimeFromTimes(prevDepSecs, targetDepSecs, dwellSecs);
+
+      set((s) => ({
+        travelTimeModifications: [
+          ...s.travelTimeModifications.filter((m) => m.segmentKey !== segKey),
+          {
+            segmentKey: segKey,
+            originalTime: prevSeg.travelTime,
+            newTime: newTravelTime,
+            reason: 'Abfahrtszeit angepasst',
+            isInfrastructure: false,
+          },
+        ],
+        departureModifications: [
+          ...s.departureModifications.filter((m) => !(m.lineId === line.id && m.stopId === stop.id)),
+          {
+            lineId: line.id,
+            stopId: stop.id,
+            originalDeparture: stop.originalDeparture || stop.departure,
+            newDeparture: targetDeparture,
+          },
+        ],
+      }));
+    }
+  },
+
+  setStopArrival: (line, stopIndex, newArrivalTime) => {
+    if (stopIndex === 0) return;
+    const state = get();
+    const calculated = calculateSynchronizedLine(
+      line,
+      state.travelTimeModifications,
+      state.departureModifications,
+      state.taktModifications
+    );
+
+    const stop = calculated.calculatedStops[stopIndex];
+    if (!stop) return;
+
+    const targetArrival = newArrivalTime.length === 5 ? newArrivalTime + ':00' : newArrivalTime;
+    const targetArrSecs = timeToSeconds(targetArrival);
+
+    const prevStop = calculated.calculatedStops[stopIndex - 1];
+    const prevDepSecs = prevStop.departureSeconds;
+    const prevSeg = line.segments[stopIndex - 1];
+    const segKey = `${prevSeg.fromStop}_${prevSeg.toStop}`;
+
+    const newTravelTime = calculateSegmentTimeFromTimes(prevDepSecs, targetArrSecs, 0);
+
+    set((s) => ({
+      travelTimeModifications: [
+        ...s.travelTimeModifications.filter((m) => m.segmentKey !== segKey),
+        {
+          segmentKey: segKey,
+          originalTime: prevSeg.travelTime,
+          newTime: newTravelTime,
+          reason: 'Ankunftszeit angepasst',
+          isInfrastructure: false,
+        },
+      ],
+    }));
+  },
+
+  setSegmentTravelTime: (segmentKey, newTime, originalTime) => {
+    set((s) => {
+      const existing = s.travelTimeModifications.find((m) => m.segmentKey === segmentKey);
+      const orig = existing ? existing.originalTime : (originalTime ?? newTime);
+
+      return {
+        travelTimeModifications: [
+          ...s.travelTimeModifications.filter((m) => m.segmentKey !== segmentKey),
+          {
+            segmentKey,
+            originalTime: orig,
+            newTime,
+            reason: existing?.reason || '',
+            isInfrastructure: existing?.isInfrastructure || false,
+          },
+        ],
+      };
     });
-
-    return {
-      ...line,
-      segments: modifiedSegments,
-      taktMinutes: taktMod ? taktMod.newTakt : line.taktMinutes,
-    };
   },
 
   getStationLines: (stationId) => {
