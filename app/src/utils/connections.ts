@@ -1,4 +1,4 @@
-import type { Line } from '../types';
+import type { Line, Station } from '../types';
 import { timeToSeconds, formatTime } from './constants';
 import { getTaktNode, type TaktNodeType } from './knoten';
 
@@ -53,23 +53,28 @@ export interface HubConnectionAnalysis {
 }
 
 /**
- * Safely matches station names avoiding false substring collisions (e.g. "Alle" matching "St. Gallen").
+ * Matches a stop strictly to the target station.
+ * NEVER does substring or prefix matching with suburban stations (e.g. "Biel/Bienne Bözingenfeld" or "Bern Wankdorf").
  */
-export function matchesStationName(stopName: string, targetName: string): boolean {
-  const s = stopName.trim().toLowerCase();
-  const t = targetName.trim().toLowerCase();
+export function isExactStationMatch(
+  stop: { id?: string; name: string },
+  stationName: string,
+  stationObj?: Station
+): boolean {
+  if (stationObj && stationObj.platforms && stationObj.platforms.length > 0 && stop.id) {
+    if (stationObj.platforms.some((p) => p.id === stop.id)) return true;
+  }
+
+  const s = stop.name.trim().toLowerCase();
+  const t = stationName.trim().toLowerCase();
   if (s === t) return true;
 
-  // Bilingual stations like "Biel/Bienne" or "Fribourg/Freiburg"
+  // Exact match with either part of bilingual stations like "Biel/Bienne" or "Fribourg/Freiburg"
   const tParts = t.split(/[/,]/).map((p) => p.trim());
-  if (tParts.some((p) => p.length >= 3 && s === p)) return true;
+  if (tParts.includes(s)) return true;
   const sParts = s.split(/[/,]/).map((p) => p.trim());
-  if (sParts.some((p) => p.length >= 3 && t === p)) return true;
+  if (sParts.includes(t)) return true;
 
-  // Suffixes like "Zürich HB" vs "Zürich" or "Basel SBB" vs "Basel"
-  if (s.startsWith(t) || t.startsWith(s)) {
-    if (Math.min(s.length, t.length) >= 4) return true;
-  }
   return false;
 }
 
@@ -82,8 +87,11 @@ export function analyzeStationConnections(
   lines: Line[],
   originalLines: Line[],
   minTransferMinutes: number = 4,
-  nodeFilter?: TaktNodeType | 'all'
+  nodeFilter?: TaktNodeType | 'all',
+  stations?: Station[]
 ): HubConnectionAnalysis {
+  const stationObj = stations ? stations.find((s) => s.name.toLowerCase() === stationName.toLowerCase()) : undefined;
+
   interface StopInfo {
     line: Line;
     idx: number;
@@ -98,7 +106,8 @@ export function analyzeStationConnections(
   const findStops = (lineList: Line[]): StopInfo[] => {
     const list: StopInfo[] = [];
     for (const l of lineList) {
-      const idx = l.stops.findIndex((s) => matchesStationName(s.name, stationName));
+      // Find stop that strictly matches the target station
+      const idx = l.stops.findIndex((s) => isExactStationMatch(s, stationName, stationObj));
 
       if (idx !== -1) {
         const s = l.stops[idx];
@@ -107,6 +116,11 @@ export function analyzeStationConnections(
         const arrMinute = arrStr ? parseInt(arrStr.split(':')[1] || '0', 10) : -1;
         const depMinute = depStr ? parseInt(depStr.split(':')[1] || '0', 10) : -1;
 
+        // Strict boundary check: if the first stop is this station, it's a route start
+        // If the last stop is this station, it's a route end
+        const isStart = idx === 0 || isExactStationMatch(l.stops[0], stationName, stationObj);
+        const isEnd = idx === l.stops.length - 1 || isExactStationMatch(l.stops[l.stops.length - 1], stationName, stationObj);
+
         list.push({
           line: l,
           idx,
@@ -114,8 +128,8 @@ export function analyzeStationConnections(
           depStr,
           arrMinute,
           depMinute,
-          isStart: idx === 0,
-          isEnd: idx === l.stops.length - 1,
+          isStart,
+          isEnd,
         });
       }
     }
@@ -138,12 +152,24 @@ export function analyzeStationConnections(
     if (arrStop.isStart) continue;
     if (!arrStop.arrStr || arrStop.arrMinute === -1) continue;
 
+    const fromOrigin = arrStop.line.stops[0]?.name || '';
+    const fromDestination = arrStop.line.stops[arrStop.line.stops.length - 1]?.name || arrStop.line.headsign;
+
+    // Sanity check: Origin cannot be this station
+    if (isExactStationMatch(arrStop.line.stops[0], stationName, stationObj)) continue;
+
     for (const depStop of currentStops) {
       // Cannot transfer to the exact same line/trip
       if (arrStop.line.id === depStop.line.id) continue;
       // A train TERMINATING at this station cannot depart further: not an outgoing connection!
       if (depStop.isEnd) continue;
       if (!depStop.depStr || depStop.depMinute === -1) continue;
+
+      const toOrigin = depStop.line.stops[0]?.name || '';
+      const toDestination = depStop.line.stops[depStop.line.stops.length - 1]?.name || depStop.line.headsign;
+
+      // Sanity check: Destination cannot be this station! A train departing from this station must head to another station.
+      if (isExactStationMatch(depStop.line.stops[depStop.line.stops.length - 1], stationName, stationObj)) continue;
 
       // Filter by node window if requested
       const arrNode = getTaktNode(arrStop.arrStr);
@@ -198,12 +224,7 @@ export function analyzeStationConnections(
         origDiffMinutes >= minTransferMinutes &&
         diffMinutes < minTransferMinutes;
 
-      const fromOrigin = arrStop.line.stops[0]?.name || '';
-      const fromDestination = arrStop.line.stops[arrStop.line.stops.length - 1]?.name || arrStop.line.headsign;
       const fromPrevStop = arrStop.idx > 0 ? arrStop.line.stops[arrStop.idx - 1]?.name : undefined;
-
-      const toOrigin = depStop.line.stops[0]?.name || '';
-      const toDestination = depStop.line.stops[depStop.line.stops.length - 1]?.name || depStop.line.headsign;
       const toNextStop = depStop.idx < depStop.line.stops.length - 1 ? depStop.line.stops[depStop.idx + 1]?.name : undefined;
 
       connections.push({

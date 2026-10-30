@@ -56,9 +56,10 @@ const ConnectionChecker: React.FC = () => {
       modifiedLines,
       rawLines,
       minTransferTime,
-      nodeFilter
+      nodeFilter,
+      stations
     );
-  }, [activeStationName, modifiedLines, rawLines, minTransferTime, nodeFilter]);
+  }, [activeStationName, modifiedLines, rawLines, minTransferTime, nodeFilter, stations]);
 
   // Station Takt profile
   const stationProfile = useMemo(() => {
@@ -402,8 +403,8 @@ const ConnectionChecker: React.FC = () => {
                         <span className="text-[11px] text-gray-500 truncate" title={`Start: ${conn.fromOrigin}`}>
                           (von {conn.fromOrigin})
                         </span>
-                        <span className="text-[10px] text-gray-600 font-mono ml-auto">
-                          {formatTime(conn.fromArrivalTime)}
+                        <span className="text-[11px] font-mono font-bold text-gray-800 ml-auto bg-gray-100 px-1 py-0.5 rounded" title={`Taktminute .${String(conn.fromArrivalMinute).padStart(2, '0')} (${formatTime(conn.fromArrivalTime)} Uhr)`}>
+                          .{String(conn.fromArrivalMinute).padStart(2, '0')}
                         </span>
                       </div>
 
@@ -424,8 +425,8 @@ const ConnectionChecker: React.FC = () => {
 
                       {/* To Line info (Departure: Where it is heading!) */}
                       <div className="w-56 shrink-0 flex items-center justify-end gap-1.5 truncate text-right">
-                        <span className="text-[10px] text-gray-600 font-mono mr-auto">
-                          {formatTime(conn.toDepartureTime)}
+                        <span className="text-[11px] font-mono font-bold text-blue-900 mr-auto bg-blue-50 px-1 py-0.5 rounded border border-blue-200" title={`Taktminute .${String(conn.toDepartureMinute).padStart(2, '0')} (${formatTime(conn.toDepartureTime)} Uhr)`}>
+                          .{String(conn.toDepartureMinute).padStart(2, '0')}
                         </span>
                         <span className="text-[11px] text-gray-500 truncate" title={`Ziel: ${conn.toDestination}`}>
                           (nach {conn.toDestination})
@@ -559,9 +560,14 @@ const ConnectionChecker: React.FC = () => {
                               >
                                 {conn.fromCategory} {conn.fromLineName}
                               </button>
-                              <span className="font-mono text-xs font-bold bg-gray-100 px-1.5 py-0.5 rounded text-gray-800">
-                                Ankunft {formatTime(conn.fromArrivalTime)}
-                              </span>
+                              <div className="flex items-center gap-1">
+                                <span className="font-mono text-xs font-black bg-gray-900 text-white px-1.5 py-0.5 rounded shadow-2xs" title="Taktminute der Ankunft">
+                                  .{String(conn.fromArrivalMinute).padStart(2, '0')}
+                                </span>
+                                <span className="font-mono text-[11px] text-gray-500" title={`Referenzfahrt: ${formatTime(conn.fromArrivalTime)} Uhr`}>
+                                  ({formatTime(conn.fromArrivalTime)})
+                                </span>
+                              </div>
                             </div>
                             <div className="text-xs text-gray-700 mt-0.5 flex items-center gap-1">
                               <span className="text-gray-400 font-medium">Von:</span>
@@ -595,9 +601,14 @@ const ConnectionChecker: React.FC = () => {
                               >
                                 {conn.toCategory} {conn.toLineName}
                               </button>
-                              <span className="font-mono text-xs font-bold bg-blue-50 px-1.5 py-0.5 rounded text-blue-900 border border-blue-200">
-                                Abfahrt {formatTime(conn.toDepartureTime)}
-                              </span>
+                              <div className="flex items-center gap-1">
+                                <span className="font-mono text-xs font-black bg-blue-600 text-white px-1.5 py-0.5 rounded shadow-2xs" title="Taktminute der Abfahrt">
+                                  .{String(conn.toDepartureMinute).padStart(2, '0')}
+                                </span>
+                                <span className="font-mono text-[11px] text-gray-500" title={`Referenzfahrt: ${formatTime(conn.toDepartureTime)} Uhr`}>
+                                  ({formatTime(conn.toDepartureTime)})
+                                </span>
+                              </div>
                             </div>
                             <div className="text-xs text-gray-700 mt-0.5 flex items-center gap-1">
                               <span className="text-gray-400 font-medium">Nach:</span>
