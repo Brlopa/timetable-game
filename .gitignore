@@ -1,0 +1,15 @@
+# Large GTFS source archives and unzipped raw data
+*.zip
+gtfs_2026/
+gtfs_2027/
+public/
+
+# Node & Build artifacts
+node_modules/
+dist/
+.DS_Store
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
