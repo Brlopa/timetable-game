@@ -84,7 +84,7 @@ export type LineCategory =
 
 export type YearKey = '2026' | '2027';
 
-export type ViewMode = 'map' | 'editor' | 'anschlüsse' | 'compare';
+export type ViewMode = 'map' | 'editor' | 'anschlüsse' | 'bildfahrplan' | 'compare';
 
 // Modification types for the optimizer
 export interface TravelTimeModification {

@@ -7,6 +7,7 @@ import LineEditor from './components/LineEditor';
 import CompareView from './components/CompareView';
 import InfrastructurePanel from './components/InfrastructurePanel';
 import ConnectionChecker from './components/ConnectionChecker';
+import Bildfahrplan from './components/Bildfahrplan';
 
 function App() {
   const {
@@ -62,6 +63,8 @@ function App() {
                 <CompareView />
               ) : viewMode === 'anschlüsse' ? (
                 <ConnectionChecker />
+              ) : viewMode === 'bildfahrplan' ? (
+                <Bildfahrplan />
               ) : (
                 <>
                   <div className="flex-1 relative h-full w-full">

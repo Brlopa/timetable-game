@@ -98,13 +98,23 @@ const LineEditor: React.FC = () => {
               {selectedLine.category}
             </span>
           </div>
-          <button
-            onClick={() => setSelectedLine(null)}
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none p-1"
-            title="Schliessen"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setViewMode('bildfahrplan')}
+              className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors shadow-xs"
+              title="Grafischen Zeit-Weg-Fahrplan für diese Linie öffnen"
+            >
+              <span>📈</span>
+              <span>Bildfahrplan</span>
+            </button>
+            <button
+              onClick={() => setSelectedLine(null)}
+              className="text-gray-400 hover:text-gray-600 text-xl leading-none p-1"
+              title="Schliessen"
+            >
+              ✕
+            </button>
+          </div>
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
           <span>

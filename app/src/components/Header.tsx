@@ -5,6 +5,7 @@ const VIEW_LABELS: Record<string, string> = {
   map: 'Karte',
   editor: 'Editor',
   anschlüsse: 'Anschlüsse',
+  bildfahrplan: 'Bildfahrplan',
   compare: 'Vergleich',
 };
 

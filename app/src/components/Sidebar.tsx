@@ -8,6 +8,7 @@ const VIEW_MODES: { key: ViewMode; label: string }[] = [
   { key: 'map', label: 'Karte' },
   { key: 'editor', label: 'Editor' },
   { key: 'anschlüsse', label: 'Anschlüsse' },
+  { key: 'bildfahrplan', label: 'Bildfahrplan' },
   { key: 'compare', label: 'Vergleich' },
 ];
 
