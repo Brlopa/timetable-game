@@ -35,7 +35,20 @@ const LineEditor: React.FC = () => {
   const [selectedSegmentKey, setSelectedSegmentKey] = useState<string | null>(null);
 
   const stations = useFahrplanStore((s) => s.data[s.activeYear].stations);
+  const allLines = useFahrplanStore((s) => s.data[s.activeYear].lines);
+  const selectedStation = useFahrplanStore((s) => s.selectedStation);
   const hubMap = useMemo(() => new Set(stations.filter(s => s.isHub).map(s => s.name.toLowerCase())), [stations]);
+
+  // Find opposing line (counterpart in opposite direction)
+  const opposingLine = useMemo(() => {
+    if (!selectedLine) return null;
+    return allLines.find(
+      (l) =>
+        l.id !== selectedLine.id &&
+        (l.routeId === selectedLine.routeId || l.name === selectedLine.name) &&
+        l.direction !== selectedLine.direction
+    );
+  }, [allLines, selectedLine]);
 
   if (viewMode !== 'editor' || !selectedLine) return null;
 
@@ -126,6 +139,35 @@ const LineEditor: React.FC = () => {
           <span>
             <span className="font-medium text-gray-500">Richtung:</span> {selectedLine.headsign}
           </span>
+        </div>
+
+        {/* Streckenverlauf & Gegenrichtung Switcher */}
+        <div className="mt-3 p-2.5 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2 text-xs flex-wrap">
+            <span className="text-gray-500 font-semibold">Streckenverlauf:</span>
+            <span className="font-bold text-gray-900 bg-white px-2 py-0.5 rounded border border-gray-200 shadow-2xs">
+              {calculatedStops[0]?.name || selectedLine.stops[0]?.name}
+            </span>
+            <span className="text-blue-600 font-bold">➔</span>
+            <span className="font-bold text-gray-900 bg-white px-2 py-0.5 rounded border border-gray-200 shadow-2xs">
+              {calculatedStops[calculatedStops.length - 1]?.name || selectedLine.stops[selectedLine.stops.length - 1]?.name}
+            </span>
+            <span className="text-gray-500 font-mono text-[11px] ml-1">
+              ({selectedLine.direction === '0' ? 'Richtung 0' : 'Richtung 1'})
+            </span>
+          </div>
+
+          {opposingLine && (
+            <button
+              type="button"
+              onClick={() => setSelectedLine(opposingLine)}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg transition-colors shadow-2xs cursor-pointer"
+              title={`Zur Gegenrichtung wechseln: ${opposingLine.stops[0]?.name} ➔ ${opposingLine.stops[opposingLine.stops.length - 1]?.name}`}
+            >
+              <span>⇄</span>
+              <span>Gegenrichtung bearbeiten ({opposingLine.stops[0]?.name} ➔ {opposingLine.stops[opposingLine.stops.length - 1]?.name})</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -229,14 +271,31 @@ const LineEditor: React.FC = () => {
                   const arrDiffMinutes = Math.round(stop.arrivalDeltaSeconds / 60);
                   const depDiffMinutes = Math.round(stop.departureDeltaSeconds / 60);
 
+                  const isSelectedStation = selectedStation && (
+                    stop.name.toLowerCase() === selectedStation.name.toLowerCase() ||
+                    stop.name.toLowerCase().startsWith(selectedStation.name.toLowerCase()) ||
+                    selectedStation.name.toLowerCase().startsWith(stop.name.toLowerCase())
+                  );
+
                   return (
                     <React.Fragment key={stop.id}>
                       {/* Stop row */}
-                      <tr className={`border-t border-gray-100 ${stop.isModified ? 'bg-amber-50/40' : 'hover:bg-gray-50'}`}>
+                      <tr className={`border-t border-gray-100 ${
+                        isSelectedStation
+                          ? 'bg-blue-50/80 border-l-4 border-l-blue-600'
+                          : stop.isModified
+                          ? 'bg-amber-50/40'
+                          : 'hover:bg-gray-50'
+                      }`}>
                         <td className="px-3 py-2.5 font-medium text-gray-900">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${isHub ? 'bg-amber-500 ring-2 ring-amber-200' : 'bg-gray-400'}`} />
-                            <span>{stop.name}</span>
+                            <span className={isSelectedStation ? 'font-bold text-blue-950' : ''}>{stop.name}</span>
+                            {isSelectedStation && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-blue-200 text-blue-950 border border-blue-400">
+                                📍 Geprüfter Bahnhof
+                              </span>
+                            )}
                             {isHub && (
                               <>
                                 <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200">

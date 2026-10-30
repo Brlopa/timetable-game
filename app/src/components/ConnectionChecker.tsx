@@ -27,7 +27,7 @@ const ConnectionChecker: React.FC = () => {
 
   const { stations, lines: rawLines } = data;
 
-  // Selected station for analysis (defaults to selectedStation or Zürich HB)
+  // Selected station for analysis (defaults to selectedStation or Olten)
   const [activeStationName, setActiveStationName] = useState<string>(
     selectedStation?.name || 'Olten'
   );
@@ -48,13 +48,6 @@ const ConnectionChecker: React.FC = () => {
     if (list.length > 0) return list;
     return stations.filter((s) => MAJOR_HUBS.some((h) => s.name.toLowerCase().includes(h.toLowerCase())));
   }, [stations]);
-
-  // Filtered hubs by search input
-  const filteredHubOptions = useMemo(() => {
-    if (!stationSearch) return availableHubs.slice(0, 30);
-    const q = stationSearch.toLowerCase();
-    return stations.filter((s) => s.name.toLowerCase().includes(q)).slice(0, 30);
-  }, [stations, availableHubs, stationSearch]);
 
   // Run the connection analysis
   const analysis = useMemo(() => {
@@ -108,7 +101,7 @@ const ConnectionChecker: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-gray-500 mt-0.5">
-              Prüfe Umsteigezeiten und garantierte Taktanschlüsse zwischen eintreffenden und abfahrenden Zügen
+              Prüfe Umsteigezeiten und Taktanschlüsse zwischen eintreffenden und abfahrenden Zügen am Knoten
             </p>
           </div>
 
@@ -121,7 +114,6 @@ const ConnectionChecker: React.FC = () => {
                 onChange={(e) => handleSelectStation(e.target.value)}
                 className="px-3 py-1.5 text-sm font-bold bg-white border border-gray-300 rounded-lg shadow-xs focus:ring-2 focus:ring-blue-400 focus:border-transparent text-gray-900"
               >
-                {/* Major Swiss Hubs first */}
                 <optgroup label="Hauptknoten">
                   {MAJOR_HUBS.map((hub) => (
                     <option key={hub} value={hub}>
@@ -334,7 +326,7 @@ const ConnectionChecker: React.FC = () => {
 
           {/* Broken by Mods */}
           <div className="bg-white p-3 rounded-xl border border-red-200 bg-red-50/30">
-            <div className="text-xs text-red-800 font-bold">Durch Modifikation gefährdet</div>
+            <div className="text-xs text-red-800 font-bold">Durch Modifikation verloren</div>
             <div className="text-2xl font-black text-red-700 mt-1">
               {analysis.brokenByModCount}
             </div>
@@ -350,14 +342,14 @@ const ConnectionChecker: React.FC = () => {
                 <span>Grafischer Anschluss-Fahrplan (Zeitscheibe {nodeFilter === 'all' ? 'Taktstunde' : nodeFilter.toUpperCase()})</span>
               </h3>
               <p className="text-xs text-gray-500">
-                Visualisierung der Ankünfte (links/oben) und Abfahrten (rechts/unten) am Knoten {activeStationName}
+                Visualisierung der Ankünfte (links) und Abfahrten (rechts) am Knoten {activeStationName}
               </p>
             </div>
           </div>
 
           {/* Timeline visualization */}
           <div className="relative border border-gray-200 rounded-lg p-3 bg-gradient-to-b from-gray-50 to-white overflow-x-auto">
-            <div className="min-w-[640px]">
+            <div className="min-w-[700px]">
               {/* Hour marker scale :00 to :59 */}
               <div className="flex justify-between text-[11px] text-gray-400 font-mono border-b border-gray-200 pb-1 mb-3">
                 <span className="font-bold text-emerald-700">:00 (Um)</span>
@@ -372,8 +364,8 @@ const ConnectionChecker: React.FC = () => {
               </div>
 
               {/* Sample visual connection bars */}
-              <div className="space-y-2 max-h-56 overflow-y-auto pr-2">
-                {displayedConnections.slice(0, 12).map((conn) => {
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                {displayedConnections.slice(0, 15).map((conn) => {
                   const arrPct = Math.max(0, Math.min(100, (conn.fromArrivalMinute / 60) * 100));
                   const depPct = Math.max(0, Math.min(100, (conn.toDepartureMinute / 60) * 100));
                   const leftPct = Math.min(arrPct, depPct);
@@ -393,14 +385,26 @@ const ConnectionChecker: React.FC = () => {
                       key={conn.id}
                       className="group flex items-center text-xs py-1 hover:bg-blue-50/60 rounded px-1.5 transition-colors"
                     >
-                      {/* From Line info */}
-                      <div className="w-48 shrink-0 flex items-center gap-1.5 truncate">
+                      {/* From Line info (Arrival: Where it came from!) */}
+                      <div className="w-56 shrink-0 flex items-center gap-1.5 truncate">
                         <span
-                          className="w-2 h-2 rounded-full shrink-0"
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
                           style={{ backgroundColor: getCatColor(conn.fromCategory) }}
                         />
-                        <span className="font-bold text-gray-900">{conn.fromCategory} {conn.fromLineName}</span>
-                        <span className="text-[10px] text-gray-500 font-mono">({formatTime(conn.fromArrivalTime)})</span>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenLineInEditor(conn.fromLineId)}
+                          className="font-bold text-gray-900 hover:text-blue-600 hover:underline cursor-pointer"
+                          title="Ankommende Linie im Editor öffnen"
+                        >
+                          {conn.fromCategory} {conn.fromLineName}
+                        </button>
+                        <span className="text-[11px] text-gray-500 truncate" title={`Start: ${conn.fromOrigin}`}>
+                          (von {conn.fromOrigin})
+                        </span>
+                        <span className="text-[10px] text-gray-600 font-mono ml-auto">
+                          {formatTime(conn.fromArrivalTime)}
+                        </span>
                       </div>
 
                       {/* Visual Time Bar */}
@@ -418,12 +422,24 @@ const ConnectionChecker: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* To Line info */}
-                      <div className="w-48 shrink-0 flex items-center justify-end gap-1.5 truncate text-right">
-                        <span className="text-[10px] text-gray-500 font-mono">({formatTime(conn.toDepartureTime)})</span>
-                        <span className="font-bold text-gray-900">{conn.toCategory} {conn.toLineName}</span>
+                      {/* To Line info (Departure: Where it is heading!) */}
+                      <div className="w-56 shrink-0 flex items-center justify-end gap-1.5 truncate text-right">
+                        <span className="text-[10px] text-gray-600 font-mono mr-auto">
+                          {formatTime(conn.toDepartureTime)}
+                        </span>
+                        <span className="text-[11px] text-gray-500 truncate" title={`Ziel: ${conn.toDestination}`}>
+                          (nach {conn.toDestination})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenLineInEditor(conn.toLineId)}
+                          className="font-bold text-gray-900 hover:text-blue-600 hover:underline cursor-pointer"
+                          title="Abfahrende Linie im Editor öffnen"
+                        >
+                          {conn.toCategory} {conn.toLineName}
+                        </button>
                         <span
-                          className="w-2 h-2 rounded-full shrink-0"
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
                           style={{ backgroundColor: getCatColor(conn.toCategory) }}
                         />
                       </div>
@@ -443,7 +459,7 @@ const ConnectionChecker: React.FC = () => {
                 Verbindungs-Matrix ({displayedConnections.length} von {analysis.connections.length})
               </h3>
               <p className="text-xs text-gray-500">
-                Klicke auf eine Linie, um sie im Editor zu optimieren
+                Wähle die ankommende oder abfahrende Linie zur gezielten Optimierung im Fahrplan-Editor
               </p>
             </div>
 
@@ -496,11 +512,21 @@ const ConnectionChecker: React.FC = () => {
             <table className="w-full text-sm text-left">
               <thead>
                 <tr className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider border-b border-gray-200">
-                  <th className="px-4 py-3">Ankunft (Von Linie)</th>
-                  <th className="px-4 py-3">Abfahrt (Auf Linie)</th>
+                  <th className="px-4 py-3">
+                    <div>Ankunft (Einfahrt)</div>
+                    <div className="text-[10px] font-normal text-gray-400 capitalize">
+                      Woher der Zug kommt
+                    </div>
+                  </th>
+                  <th className="px-4 py-3">
+                    <div>Abfahrt (Ausfahrt / Weiterreise)</div>
+                    <div className="text-[10px] font-normal text-gray-400 capitalize">
+                      Wohin der Anschlusszug fährt
+                    </div>
+                  </th>
                   <th className="px-4 py-3 text-center">Umsteigezeit</th>
                   <th className="px-4 py-3 text-center">Status</th>
-                  <th className="px-4 py-3 text-right">Aktion</th>
+                  <th className="px-4 py-3 text-right">Fahrplan bearbeiten</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -516,53 +542,83 @@ const ConnectionChecker: React.FC = () => {
                           : ''
                       }`}
                     >
-                      {/* From Line */}
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2">
+                      {/* Arriving Line (Einfahrt) */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-start gap-2.5">
                           <span
-                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            className="w-3 h-3 rounded-full shrink-0 mt-1"
                             style={{ backgroundColor: getCatColor(conn.fromCategory) }}
                           />
-                          <div>
-                            <div className="font-bold text-gray-900">
-                              {conn.fromCategory} {conn.fromLineName}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenLineInEditor(conn.fromLineId)}
+                                className="font-bold text-gray-900 hover:text-blue-600 hover:underline cursor-pointer"
+                                title="Linie im Editor öffnen"
+                              >
+                                {conn.fromCategory} {conn.fromLineName}
+                              </button>
+                              <span className="font-mono text-xs font-bold bg-gray-100 px-1.5 py-0.5 rounded text-gray-800">
+                                Ankunft {formatTime(conn.fromArrivalTime)}
+                              </span>
                             </div>
-                            <div className="text-xs text-gray-500 truncate max-w-[180px]">
-                              {conn.fromHeadsign}
+                            <div className="text-xs text-gray-700 mt-0.5 flex items-center gap-1">
+                              <span className="text-gray-400 font-medium">Von:</span>
+                              <span className="font-semibold text-gray-900">{conn.fromOrigin}</span>
+                            </div>
+                            <div className="text-[11px] text-gray-500 truncate max-w-[220px]">
+                              {conn.fromIsTerminating ? (
+                                <span className="text-gray-500 italic">Endet in {activeStationName}</span>
+                              ) : (
+                                <span>weiter nach <strong className="font-medium text-gray-700">{conn.fromDestination}</strong></span>
+                              )}
                             </div>
                           </div>
-                          <span className="ml-auto font-mono text-xs font-semibold bg-gray-100 px-1.5 py-0.5 rounded text-gray-700">
-                            {formatTime(conn.fromArrivalTime)}
-                          </span>
                         </div>
                       </td>
 
-                      {/* To Line */}
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2">
+                      {/* Departing Line (Ausfahrt) */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-start gap-2.5">
                           <span
-                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            className="w-3 h-3 rounded-full shrink-0 mt-1"
                             style={{ backgroundColor: getCatColor(conn.toCategory) }}
                           />
-                          <div>
-                            <div className="font-bold text-gray-900">
-                              {conn.toCategory} {conn.toLineName}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenLineInEditor(conn.toLineId)}
+                                className="font-bold text-gray-900 hover:text-blue-600 hover:underline cursor-pointer"
+                                title="Linie im Editor öffnen"
+                              >
+                                {conn.toCategory} {conn.toLineName}
+                              </button>
+                              <span className="font-mono text-xs font-bold bg-blue-50 px-1.5 py-0.5 rounded text-blue-900 border border-blue-200">
+                                Abfahrt {formatTime(conn.toDepartureTime)}
+                              </span>
                             </div>
-                            <div className="text-xs text-gray-500 truncate max-w-[180px]">
-                              {conn.toHeadsign}
+                            <div className="text-xs text-gray-700 mt-0.5 flex items-center gap-1">
+                              <span className="text-gray-400 font-medium">Nach:</span>
+                              <span className="font-semibold text-gray-900">{conn.toDestination}</span>
+                            </div>
+                            <div className="text-[11px] text-gray-500 truncate max-w-[220px]">
+                              {conn.toIsOriginating ? (
+                                <span className="text-gray-500 italic">Beginnt in {activeStationName}</span>
+                              ) : (
+                                <span>aus <strong className="font-medium text-gray-700">{conn.toOrigin}</strong></span>
+                              )}
                             </div>
                           </div>
-                          <span className="ml-auto font-mono text-xs font-semibold bg-gray-100 px-1.5 py-0.5 rounded text-gray-700">
-                            {formatTime(conn.toDepartureTime)}
-                          </span>
                         </div>
                       </td>
 
                       {/* Transfer Time */}
-                      <td className="px-4 py-2.5 text-center">
+                      <td className="px-4 py-3 text-center">
                         <div className="inline-flex flex-col items-center">
                           <span
-                            className={`text-sm font-black font-mono ${
+                            className={`text-base font-black font-mono ${
                               conn.status === 'optimal'
                                 ? 'text-emerald-700'
                                 : conn.status === 'knapp'
@@ -584,7 +640,7 @@ const ConnectionChecker: React.FC = () => {
                       </td>
 
                       {/* Status */}
-                      <td className="px-4 py-2.5 text-center">
+                      <td className="px-4 py-3 text-center">
                         {conn.status === 'optimal' && (
                           <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                             ✅ Optimal
@@ -618,15 +674,28 @@ const ConnectionChecker: React.FC = () => {
                         )}
                       </td>
 
-                      {/* Action */}
-                      <td className="px-4 py-2.5 text-right">
-                        <button
-                          onClick={() => handleOpenLineInEditor(conn.fromLineId)}
-                          className="px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-md hover:bg-blue-600 hover:text-white transition-colors"
-                          title="Ankommende Linie im Editor anpassen"
-                        >
-                          Optimieren
-                        </button>
+                      {/* Action: Two distinct buttons for Ankunft vs Abfahrt */}
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex flex-col sm:flex-row items-end sm:items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenLineInEditor(conn.fromLineId)}
+                            className="flex items-center gap-1 px-2 py-1 text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md transition-colors"
+                            title={`Ankommende Linie ${conn.fromCategory} ${conn.fromLineName} aus ${conn.fromOrigin} im Editor anpassen`}
+                          >
+                            <span>⬇️</span>
+                            <span>{conn.fromLineName} (Ankunft)</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenLineInEditor(conn.toLineId)}
+                            className="flex items-center gap-1 px-2 py-1 text-xs font-bold bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 border border-blue-200 hover:border-transparent rounded-md transition-colors shadow-xs"
+                            title={`Abfahrende Linie ${conn.toCategory} ${conn.toLineName} nach ${conn.toDestination} im Editor anpassen`}
+                          >
+                            <span>⬆️</span>
+                            <span>{conn.toLineName} (Abfahrt)</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
