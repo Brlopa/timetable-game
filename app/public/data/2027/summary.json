@@ -1,0 +1,26 @@
+{
+  "year": "2027",
+  "totalRoutes": 500,
+  "totalLines": 953,
+  "totalStations": 1995,
+  "totalEdges": 2487,
+  "hubStations": 248,
+  "categories": {
+    "S": 279,
+    "R": 173,
+    "IC": 52,
+    "SN": 52,
+    "RE": 126,
+    "IR": 76,
+    "TGV": 87,
+    "RJX": 2,
+    "PE": 18,
+    "RB": 12,
+    "EC": 14,
+    "NJ": 4,
+    "ICE": 14,
+    "EXT": 11,
+    "CC": 25,
+    "FAE": 8
+  }
+}

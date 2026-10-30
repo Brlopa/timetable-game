@@ -1,8 +1,8 @@
 # Large GTFS source archives and unzipped raw data
 *.zip
-gtfs_2026/
-gtfs_2027/
-public/
+/gtfs_2026/
+/gtfs_2027/
+/public/
 
 # Node & Build artifacts
 node_modules/
