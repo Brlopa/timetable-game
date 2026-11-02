@@ -557,7 +557,7 @@ class TimetableOptimizer:
 def main():
     parser = argparse.ArgumentParser(description="Fahrplan 2026 Timetable Optimizer (MILP / HiGHS)")
     parser.add_argument("--lines-file", default="public/data/2026/lines.json", help="Path to lines.json")
-    parser.add_argument("--categories", default="IC,IR", help="Categories to include (e.g. IC,IR or IC,IR,RE)")
+    parser.add_argument("--categories", default="IC,IR,RE", help="Categories to include (e.g. IC,IR or IC,IR,RE)")
     parser.add_argument("--hubs", default="Zürich HB,Bern,Olten,Basel SBB,Luzern,Winterthur, Biel/Bienne, Lausanne", help="Hub stations to focus on")
     parser.add_argument("--max-runtime-extension", type=float, default=2.0, help="Max allowed runtime extension per segment in minutes")
     parser.add_argument("--max-shift", type=float, default=6.0, help="Max departure shift in minutes")
