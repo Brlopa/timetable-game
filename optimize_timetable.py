@@ -406,6 +406,9 @@ class TimetableOptimizer:
             "after_optimal": 0, "after_knapp": 0, "after_broken": 0,
         })
 
+        all_transfers_list = []
+        improved_transfers_list = []
+
         for t in transfers:
             h = t['hub']
             bw = t['base_wait']
@@ -445,6 +448,34 @@ class TimetableOptimizer:
             else:
                 after_lang += 1
 
+            status_before = "gebrochen" if bw < 1.0 else ("knapp" if bw < self.min_transfer else ("optimal" if bw <= self.max_transfer else "lang"))
+            status_after = "gebrochen" if aw < 1.0 else ("knapp" if aw < self.min_transfer else ("optimal" if aw <= self.max_transfer else "lang"))
+            is_improved = (status_before in ("knapp", "gebrochen", "lang") and status_after == "optimal")
+
+            t_record = {
+                "id": t['id'],
+                "hub": h,
+                "fromLineId": l1['id'],
+                "fromLineName": l1.get('name', ''),
+                "fromCategory": l1.get('category', ''),
+                "fromHeadsign": l1.get('headsign', ''),
+                "fromArrival": l1['stops'][t['from_stop_idx']].get('arrival', ''),
+                "toLineId": l2['id'],
+                "toLineName": l2.get('name', ''),
+                "toCategory": l2.get('category', ''),
+                "toHeadsign": l2.get('headsign', ''),
+                "toDeparture": l2['stops'][t['to_stop_idx']].get('departure', ''),
+                "originalWaitMinutes": round(bw, 1),
+                "optimizedWaitMinutes": round(aw, 1),
+                "waitDeltaMinutes": round(aw - bw, 1),
+                "statusBefore": status_before,
+                "statusAfter": status_after,
+                "isImproved": is_improved,
+            }
+            all_transfers_list.append(t_record)
+            if is_improved:
+                improved_transfers_list.append(t_record)
+
         total_t = len(transfers)
         return {
             "success": True,
@@ -472,6 +503,8 @@ class TimetableOptimizer:
             "hubStatistics": dict(hub_stats),
             "departureModifications": dep_mods,
             "travelTimeModifications": travel_mods,
+            "improvedTransfers": improved_transfers_list,
+            "allTransfers": all_transfers_list,
             "lineShifts": line_shifts,
             "runtimeExtensions": dict(runtime_extensions),
         }

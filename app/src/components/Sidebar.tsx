@@ -11,6 +11,7 @@ const VIEW_MODES: { key: ViewMode; label: string }[] = [
   { key: 'bildfahrplan', label: 'Bildfahrplan' },
   { key: 'compare', label: 'Vergleich' },
   { key: 'sbb', label: 'SBB Suche' },
+  { key: 'optimiert', label: '⚡ Optimiert' },
 ];
 
 const Sidebar: React.FC = () => {

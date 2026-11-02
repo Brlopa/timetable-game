@@ -9,6 +9,7 @@ import InfrastructurePanel from './components/InfrastructurePanel';
 import ConnectionChecker from './components/ConnectionChecker';
 import Bildfahrplan from './components/Bildfahrplan';
 import SbbTimetableSearch from './components/SbbTimetableSearch';
+import OptimizedConnectionsView from './components/OptimizedConnectionsView';
 
 function App() {
   const {
@@ -68,6 +69,8 @@ function App() {
                 <Bildfahrplan />
               ) : viewMode === 'sbb' ? (
                 <SbbTimetableSearch />
+              ) : viewMode === 'optimiert' ? (
+                <OptimizedConnectionsView />
               ) : (
                 <>
                   <div className="flex-1 relative h-full w-full">

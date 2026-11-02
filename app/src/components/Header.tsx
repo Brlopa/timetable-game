@@ -8,6 +8,7 @@ const VIEW_LABELS: Record<string, string> = {
   bildfahrplan: 'Bildfahrplan',
   compare: 'Vergleich',
   sbb: 'SBB Fahrplan',
+  optimiert: '⚡ Optimiert',
 };
 
 const Header: React.FC = () => {
