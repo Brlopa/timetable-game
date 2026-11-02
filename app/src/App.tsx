@@ -8,6 +8,7 @@ import CompareView from './components/CompareView';
 import InfrastructurePanel from './components/InfrastructurePanel';
 import ConnectionChecker from './components/ConnectionChecker';
 import Bildfahrplan from './components/Bildfahrplan';
+import SbbTimetableSearch from './components/SbbTimetableSearch';
 
 function App() {
   const {
@@ -65,6 +66,8 @@ function App() {
                 <ConnectionChecker />
               ) : viewMode === 'bildfahrplan' ? (
                 <Bildfahrplan />
+              ) : viewMode === 'sbb' ? (
+                <SbbTimetableSearch />
               ) : (
                 <>
                   <div className="flex-1 relative h-full w-full">

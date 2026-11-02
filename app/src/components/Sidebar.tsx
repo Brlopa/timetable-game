@@ -10,6 +10,7 @@ const VIEW_MODES: { key: ViewMode; label: string }[] = [
   { key: 'anschlüsse', label: 'Anschlüsse' },
   { key: 'bildfahrplan', label: 'Bildfahrplan' },
   { key: 'compare', label: 'Vergleich' },
+  { key: 'sbb', label: 'SBB Suche' },
 ];
 
 const Sidebar: React.FC = () => {
@@ -90,7 +91,7 @@ const Sidebar: React.FC = () => {
         <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
           Ansicht
         </label>
-        <div className="mt-1.5 flex gap-1">
+        <div className="mt-1.5 grid grid-cols-3 gap-1">
           {VIEW_MODES.map(({ key, label }) => (
             <button
               key={key}

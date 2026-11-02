@@ -7,6 +7,9 @@
 # Node & Build artifacts
 node_modules/
 dist/
+*.tsbuildinfo
+__pycache__/
+*.pyc
 .DS_Store
 
 # Logs

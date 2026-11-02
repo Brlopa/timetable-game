@@ -7,6 +7,7 @@ const VIEW_LABELS: Record<string, string> = {
   anschlüsse: 'Anschlüsse',
   bildfahrplan: 'Bildfahrplan',
   compare: 'Vergleich',
+  sbb: 'SBB Fahrplan',
 };
 
 const Header: React.FC = () => {
